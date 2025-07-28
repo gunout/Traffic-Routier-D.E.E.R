@@ -314,21 +314,67 @@
             font-family: 'Courier New', monospace;
         }
 
-        /* Nouveau style pour le logo */
+        /* Styles pour le logo Région Réunion avec effet glow neon */
         .region-logo {
             position: absolute;
             top: 10px;
             left: 10px;
             z-index: 100;
             width: 100px;
-            opacity: 0.8;
+            opacity: 0.9;
             transition: all 0.3s;
             pointer-events: none;
+            filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.8));
+            animation: logo-glow 2s infinite alternate;
         }
 
         .region-logo:hover {
             opacity: 1;
-            filter: drop-shadow(0 0 5px var(--neon-blue));
+            filter: drop-shadow(0 0 10px rgba(255, 255, 255, 1))
+                    drop-shadow(0 0 20px rgba(255, 255, 255, 0.7));
+            animation: logo-pulse 1s infinite alternate;
+        }
+
+        @keyframes logo-glow {
+            0% {
+                filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.7));
+            }
+            100% {
+                filter: drop-shadow(0 0 10px rgba(255, 255, 255, 1))
+                        drop-shadow(0 0 15px rgba(255, 255, 255, 0.7));
+            }
+        }
+
+        @keyframes logo-pulse {
+            0% {
+                transform: scale(1);
+                filter: drop-shadow(0 0 10px rgba(255, 255, 255, 1))
+                        drop-shadow(0 0 20px rgba(255, 255, 255, 0.7));
+            }
+            100% {
+                transform: scale(1.05);
+                filter: drop-shadow(0 0 15px rgba(255, 255, 255, 1))
+                        drop-shadow(0 0 25px rgba(255, 255, 255, 0.9));
+            }
+        }
+
+        .region-logo::after {
+            content: "";
+            position: absolute;
+            top: -5px;
+            left: -5px;
+            right: -5px;
+            bottom: -5px;
+            border-radius: 5px;
+            background: transparent;
+            z-index: -1;
+            opacity: 0;
+            transition: opacity 0.3s;
+            box-shadow: 0 0 15px 5px rgba(255, 255, 255, 0.5);
+        }
+
+        .region-logo:hover::after {
+            opacity: 0.7;
         }
     </style>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
@@ -336,8 +382,8 @@
 <body>
     <div class="scanlines"></div>
     
-    <!-- Logo Région Réunion -->
-    <img src="https://github.com/gunout/Traffic-Routier-D.E.E.R/blob/main/region-reunion-logo.png?raw=true" 
+    <!-- Logo Région Réunion avec effet glow neon -->
+    <img src="https://upload.wikimedia.org/wikipedia/fr/thumb/5/5f/R%C3%A9gion_R%C3%A9union_logo.svg/1200px-R%C3%A9gion_R%C3%A9union_logo.svg.png" 
          alt="Logo Région Réunion" 
          class="region-logo"
          title="Région Réunion">
