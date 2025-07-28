@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webcam Traffic Réunion - D.E.E.R. Observation Routière</title>
+    <style>
+        :root {
+            --neon-blue: #0ff0fc;
+            --neon-pink: #ff00ff;
+            --neon-cyan: #00f0ff;
+            --dark-bg: #0a0a12;
+            --darker-bg: #050508;
+            --text-color: #ffffff;
+            --glow-blue: 0 0 10px #0ff0fc, 0 0 20px #0ff0fc, 0 0 30px #0ff0fc;
+            --glow-pink: 0 0 10px #ff00ff, 0 0 20px #ff00ff, 0 0 30px #ff00ff;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Courier New', monospace;
+        }
+
+        body {
+            background-color: var(--dark-bg);
+            color: var(--text-color);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        body::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background:
+                radial-gradient(circle at 20% 30%, rgba(15, 240, 252, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 70%, rgba(255, 0, 255, 0.1) 0%, transparent 50%);
+            z-index: -1;
+        }
+
+        .scanlines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background:
+                linear-gradient(to bottom,
+                    rgba(15, 240, 252, 0.03) 0%,
+                    rgba(15, 240, 252, 0.05) 50%,
+                    rgba(255, 0, 255, 0.03) 100%);
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            padding: 20px;
+        }
+
+        .player-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid var(--neon-blue);
+            box-shadow: var(--glow-blue);
+            background-color: rgba(5, 5, 8, 0.8);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .player-container::before {
+            content: "";
+            position: absolute;
+            top: -10px;
+            left: -10px;
+            right: -10px;
+            bottom: -10px;
+            border: 1px solid var(--neon-pink);
+            box-shadow: var(--glow-pink);
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
+        .video-container {
+            flex: 1;
+            background-color: black;
+            position: relative;
+        }
+
+        .video-placeholder {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: var(--neon-cyan);
+            text-shadow: 0 0 5px var(--neon-cyan);
+            font-size: 1.5em;
+            z-index: 1;
+            background-color: black;
+            flex-direction: column;
+            text-align: center;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+            z-index: 0;
+        }
+
+        .controls {
+            padding: 15px;
+            background-color: rgba(10, 10, 18, 0.9);
+            border-top: 1px solid var(--neon-blue);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 10;
+        }
+
+        .player-container:hover .controls {
+            opacity: 1;
+        }
+
+        .control-btn {
+            background-color: transparent;
+            color: var(--neon-cyan);
+            border: 1px solid var(--neon-cyan);
+            padding: 8px 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+            text-shadow: 0 0 5px var(--neon-cyan);
+        }
+
+        .control-btn:hover {
+            box-shadow: var(--glow-blue);
+            color: white;
+        }
+
+        .control-btn.pink {
+            border-color: var(--neon-pink);
+            color: var(--neon-pink);
+            text-shadow: 0 0 5px var(--neon-pink);
+        }
+
+        .control-btn.pink:hover {
+            box-shadow: var(--glow-pink);
+            color: white;
+        }
+
+        .location-info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: rgba(5, 5, 8, 0.7);
+            border: 1px solid var(--neon-pink);
+            padding: 5px 10px;
+            font-size: 14px;
+            color: var(--neon-cyan);
+            text-shadow: 0 0 5px var(--neon-cyan);
+            z-index: 5;
+        }
+
+        .timestamp {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: rgba(5, 5, 8, 0.7);
+            border: 1px solid var(--neon-blue);
+            padding: 5px 10px;
+            font-size: 14px;
+            color: var(--neon-cyan);
+            text-shadow: 0 0 5px var(--neon-cyan);
+            z-index: 5;
+        }
+
+        .map-container {
+            margin-top: 20px;
+            border: 1px solid var(--neon-pink);
+            box-shadow: var(--glow-pink);
+            height: 200px;
+            overflow: hidden;
+            background-color: rgba(5, 5, 8, 0.8);
+            position: relative;
+        }
+
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+
+        .map-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(to bottom, rgba(10, 10, 18, 0.7) 0%, transparent 20%);
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .map-title {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: var(--neon-cyan);
+            text-shadow: 0 0 5px var(--neon-cyan);
+            z-index: 11;
+            font-size: 1.2em;
+        }
+
+        .webcam-marker div {
+            background-color: var(--neon-blue);
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 0 10px var(--neon-blue);
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+        }
+
+        .webcam-marker.active div {
+            background-color: var(--neon-pink);
+            box-shadow: 0 0 10px var(--neon-pink), 0 0 20px var(--neon-pink);
+        }
+
+        @keyframes flicker {
+            0%, 19.999%, 22%, 62.999%, 64%, 64.999%, 70%, 100% {
+                opacity: 1;
+            }
+            20%, 21.999%, 63%, 63.999%, 65%, 69.999% {
+                opacity: 0.5;
+            }
+        }
+
+        .flicker {
+            animation: flicker 3s linear infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 10px var(--neon-blue), 0 0 20px var(--neon-blue);
+            }
+            50% {
+                box-shadow: 0 0 20px var(--neon-blue), 0 0 30px var(--neon-blue);
+            }
+            100% {
+                box-shadow: 0 0 10px var(--neon-blue), 0 0 20px var(--neon-blue);
+            }
+        }
+
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+
+        .signature {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            color: var(--neon-pink);
+            text-shadow: var(--glow-pink);
+            font-size: 1.2em;
+            font-weight: bold;
+            opacity: 0.7;
+            transition: all 0.3s;
+            z-index: 100;
+            pointer-events: none;
+            font-family: 'Courier New', monospace;
+        }
+
+        .signature:hover {
+            opacity: 1;
+            text-shadow: 0 0 10px var(--neon-pink),
+                         0 0 20px var(--neon-pink),
+                         0 0 30px var(--neon-pink);
+        }
+
+        .copyright {
+            position: fixed;
+            bottom: 30px;
+            right: 10px;
+            color: var(--neon-cyan);
+            text-shadow: 0 0 5px var(--neon-cyan);
+            font-size: 0.8em;
+            opacity: 0.5;
+            z-index: 100;
+            pointer-events: none;
+            font-family: 'Courier New', monospace;
+        }
+
+        /* Nouveau style pour le logo */
+        .region-logo {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 100;
+            width: 100px;
+            opacity: 0.8;
+            transition: all 0.3s;
+            pointer-events: none;
+        }
+
+        .region-logo:hover {
+            opacity: 1;
+            filter: drop-shadow(0 0 5px var(--neon-blue));
+        }
+    </style>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+</head>
+<body>
+    <div class="scanlines"></div>
+    
+    <!-- Logo Région Réunion -->
+    <img src="https://upload.wikimedia.org/wikipedia/fr/thumb/8/8f/R%C3%A9gion_R%C3%A9union_logo.svg/1200px-R%C3%A9gion_R%C3%A9union_logo.svg.png" 
+         alt="Logo Région Réunion" 
+         class="region-logo"
+         title="Région Réunion">
+
+    <div class="container">
+        <div class="player-container" id="playerContainer">
+            <div class="video-container">
+                <div class="video-placeholder flicker" id="videoPlaceholder">
+                    WEBCAM TRAFFIC RÉUNION<br>D.E.E.R. OBSERVATION<br>CHARGEMENT...
+                </div>
+                <video id="videoPlayer" playsinline autoplay muted></video>
+                <div class="location-info" id="locationInfo">Localisation: Chargement...</div>
+                <div class="timestamp" id="timestamp">--:--:--</div>
+            </div>
+            <div class="controls">
+                <button class="control-btn" id="refreshBtn">ACTUALISER</button>
+                <button class="control-btn pink" id="fullscreenBtn">PLEIN ÉCRAN</button>
+                <button class="control-btn" id="prevCamBtn">PRÉCÉDENTE</button>
+                <button class="control-btn" id="nextCamBtn">SUIVANTE</button>
+            </div>
+        </div>
+
+        <div class="map-container">
+            <div class="map-title">CARTE DES WEBCAMS D.E.E.R.</div>
+            <div id="map"></div>
+            <div class="map-overlay"></div>
+        </div>
+    </div>
+
+    <div class="signature">GLEAPHE</div>
+    <div class="copyright">© 2025 WEBCAM TRAFFIC RÉUNION</div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Éléments DOM
+            const videoPlayer = document.getElementById('videoPlayer');
+            const videoPlaceholder = document.getElementById('videoPlaceholder');
+            const refreshBtn = document.getElementById('refreshBtn');
+            const fullscreenBtn = document.getElementById('fullscreenBtn');
+            const prevCamBtn = document.getElementById('prevCamBtn');
+            const nextCamBtn = document.getElementById('nextCamBtn');
+            const locationInfo = document.getElementById('locationInfo');
+            const timestamp = document.getElementById('timestamp');
+            const mapContainer = document.getElementById('map');
+
+            // Données des webcams D.E.E.R. de l'île de la Réunion
+            const webcams = [
+                {
+                    name: "D.E.E.R. - RN2 Ste Marie, Duparc",
+                    url: "https://www.infotrafic.re/CAM/dec_04.jpeg",
+                    type: "IMAGE",
+                    coords: [-20.9000, 55.5300],
+                    description: "Webcam D.E.E.R. - RN2 Ste Marie, Duparc"
+                },
+                {
+                    name: "D.E.E.R. - RN1 St Denis, Potences",
+                    url: "https://www.infotrafic.re/CAM/dec_14.jpeg",
+                    type: "IMAGE",
+                    coords: [-20.8800, 55.4500],
+                    description: "Webcam D.E.E.R. - RN1 St Denis, Potences"
+                },
+                {
+                    name: "D.E.E.R. - RN1 (RL) - La Grande Chaloupe",
+                    url: "https://www.infotrafic.re/CAM/dec_15.jpeg",
+                    type: "IMAGE",
+                    coords: [-20.8900, 55.3900],
+                    description: "Webcam D.E.E.R. - RN1 (RL) - La Grande Chaloupe"
+                },
+                {
+                    name: "D.E.E.R. - RN1 Le Port, Echangeur Sacré Coeur",
+                    url: "https://www.infotrafic.re/CAM/dec_02.jpeg",
+                    type: "IMAGE",
+                    coords: [-20.9300, 55.3000],
+                    description: "Webcam D.E.E.R. - RN1 Le Port, Echangeur Sacré Coeur"
+                },
+                {
+                    name: "D.E.E.R. - RN1 St Paul, Echangeur Bellemène",
+                    url: "https://www.infotrafic.re/CAM/dec_16.jpeg",
+                    type: "IMAGE",
+                    coords: [-21.0000, 55.2800],
+                    description: "Webcam D.E.E.R. - RN1 St Paul, Echangeur Bellemène"
+                },
+                {
+                    name: "D.E.E.R. - RN1 St Paul, Tranchée St Paul",
+                    url: "https://www.infotrafic.re/CAM/dec_09.jpeg",
+                    type: "IMAGE",
+                    coords: [-21.0100, 55.2700],
+                    description: "Webcam D.E.E.R. - RN1 St Paul, Tranchée St Paul"
+                },
+                {
+                    name: "D.E.E.R. - RN1 St Paul, Echangeur Plateau Caillou",
+                    url: "https://www.infotrafic.re/CAM/dec_17.jpeg",
+                    type: "IMAGE",
+                    coords: [-21.0200, 55.2600],
+                    description: "Webcam D.E.E.R. - RN1 St Paul, Echangeur Plateau Caillou"
+                },
+                {
+                    name: "D.E.E.R. - RN1 St Paul, Echangeur Eperon",
+                    url: "https://www.infotrafic.re/CAM/dec_18.jpeg",
+                    type: "IMAGE",
+                    coords: [-21.0300, 55.2500],
+                    description: "Webcam D.E.E.R. - RN1 St Paul, Echangeur Eperon"
+                },
+                {
+                    name: "D.E.E.R. - RN1 Ravine 3 Bassins",
+                    url: "https://www.infotrafic.re/CAM/dec_10.jpeg",
+                    type: "IMAGE",
+                    coords: [-21.0800, 55.2400],
+                    description: "Webcam D.E.E.R. - RN1 Ravine 3 Bassins"
+                },
+                {
+                    name: "D.E.E.R. - RN1 St Leu, Ravine Fontaine",
+                    url: "https://www.infotrafic.re/CAM/dec_11.jpeg",
+                    type: "IMAGE",
+                    coords: [-21.1500, 55.2800],
+                    description: "Webcam D.E.E.R. - RN1 St Leu, Ravine Fontaine"
+                },
+                {
+                    name: "D.E.E.R. - RN1 St Pierre, Pierrefond",
+                    url: "https://www.infotrafic.re/CAM/dec_12.jpeg",
+                    type: "IMAGE",
+                    coords: [-21.2800, 55.4200],
+                    description: "Webcam D.E.E.R. - RN1 St Pierre, Pierrefond"
+                },
+                {
+                    name: "D.E.E.R. - RN3 St Pierre, Azalée",
+                    url: "https://www.infotrafic.re/CAM/dec_13.jpeg",
+                    type: "IMAGE",
+                    coords: [-21.3300, 55.4800],
+                    description: "Webcam D.E.E.R. - RN3 St Pierre, Azalée"
+                },
+                {
+                    name: "D.E.E.R. - RN2 Ste Pierre, Anse Les Bas",
+                    url: "https://www.infotrafic.re/CAM/dec_05.jpeg",
+                    type: "IMAGE",
+                    coords: [-21.3500, 55.4700],
+                    description: "Webcam D.E.E.R. - RN2 Ste Pierre, Anse Les Bas"
+                }
+            ];
+
+            let currentCamIndex = 0;
+            let map;
+            let markers = [];
+            let currentMarker;
+            let refreshInterval;
+            let imgElement;
+
+            // Initialisation
+            initPlayer();
+
+            function initPlayer() {
+                // Créer un élément img pour afficher les images statiques
+                imgElement = document.createElement('img');
+                imgElement.style.width = '100%';
+                imgElement.style.height = '100%';
+                imgElement.style.objectFit = 'contain';
+                document.querySelector('.video-container').appendChild(imgElement);
+                videoPlayer.style.display = 'none';
+
+                // Configurer les écouteurs d'événements
+                refreshBtn.addEventListener('click', refreshStream);
+                fullscreenBtn.addEventListener('click', toggleFullscreen);
+                prevCamBtn.addEventListener('click', prevCamera);
+                nextCamBtn.addEventListener('click', nextCamera);
+
+                // Initialiser la carte
+                initMap();
+
+                // Charger la première webcam
+                loadCamera(currentCamIndex);
+
+                // Mettre à jour l'heure en temps réel
+                updateTime();
+                setInterval(updateTime, 1000);
+
+                // Configurer l'intervalle de rafraîchissement
+                setupRefreshInterval();
+
+                // Détection du mouvement de la souris pour afficher les contrôles
+                let mouseMoveTimer;
+                document.addEventListener('mousemove', function() {
+                    const controls = document.querySelector('.controls');
+                    controls.style.opacity = '1';
+
+                    clearTimeout(mouseMoveTimer);
+                    mouseMoveTimer = setTimeout(() => {
+                        const playerContainer = document.getElementById('playerContainer');
+                        if (!playerContainer.contains(event.target)) {
+                            controls.style.opacity = '0';
+                        }
+                    }, 2000);
+                });
+
+                // Assurer que les contrôles restent visibles si la souris est sur eux
+                document.querySelector('.controls').addEventListener('mouseenter', () => {
+                    document.querySelector('.controls').style.opacity = '1';
+                    clearTimeout(mouseMoveTimer);
+                });
+            }
+
+            function initMap() {
+                // Centrer sur l'île de la Réunion
+                map = L.map('map').setView([-21.1151, 55.5364], 10);
+
+                // Ajouter une carte de base
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                }).addTo(map);
+
+                // Ajouter des marqueurs pour chaque webcam
+                webcams.forEach((cam, index) => {
+                    const marker = L.marker(cam.coords, {
+                        icon: L.divIcon({
+                            className: 'webcam-marker',
+                            html: `<div style="background-color: ${index === currentCamIndex ? 'var(--neon-pink)' : 'var(--neon-blue)'};
+                                  width: 15px; height: 15px; border-radius: 50%;
+                                  border: 2px solid white; box-shadow: 0 0 10px ${index === currentCamIndex ? 'var(--neon-pink)' : 'var(--neon-blue)'};
+                                  cursor: pointer;"></div>`,
+                            iconSize: [15, 15]
+                        })
+                    }).addTo(map);
+
+                    marker.bindPopup(`<b>${cam.name}</b><br>${cam.description}`);
+
+                    marker.on('click', function() {
+                        currentCamIndex = index;
+                        loadCamera(currentCamIndex);
+                    });
+
+                    markers.push(marker);
+                });
+            }
+
+            function loadCamera(index) {
+                if (index < 0 || index >= webcams.length) return;
+
+                // Mettre à jour l'icône du marqueur précédent
+                if (currentMarker) {
+                    currentMarker.setIcon(L.divIcon({
+                        className: 'webcam-marker',
+                        html: `<div style="background-color: var(--neon-blue);
+                              width: 15px; height: 15px; border-radius: 50%;
+                              border: 2px solid white; box-shadow: 0 0 10px var(--neon-blue);
+                              cursor: pointer;"></div>`,
+                        iconSize: [15, 15]
+                    }));
+                }
+
+                currentCamIndex = index;
+                const cam = webcams[currentCamIndex];
+
+                // Mettre à jour l'interface
+                videoPlaceholder.textContent = `CHARGEMENT: ${cam.name}`;
+                videoPlaceholder.style.display = 'flex';
+                videoPlaceholder.classList.add('pulse');
+                imgElement.style.display = 'none';
+
+                locationInfo.textContent = `Localisation: ${cam.name}`;
+
+                // Mettre à jour le marqueur actuel sur la carte
+                currentMarker = markers[currentCamIndex];
+                currentMarker.setIcon(L.divIcon({
+                    className: 'webcam-marker active',
+                    html: `<div style="background-color: var(--neon-pink);
+                          width: 15px; height: 15px; border-radius: 50%;
+                          border: 2px solid white; box-shadow: 0 0 10px var(--neon-pink);
+                          cursor: pointer;"></div>`,
+                    iconSize: [15, 15]
+                }));
+
+                // Centrer la carte sur la webcam sélectionnée
+                map.setView(cam.coords, 13);
+                currentMarker.openPopup();
+
+                // Charger l'image
+                refreshStream();
+            }
+
+            function refreshStream() {
+                const cam = webcams[currentCamIndex];
+                videoPlaceholder.textContent = `CHARGEMENT: ${cam.name}`;
+                videoPlaceholder.style.display = 'flex';
+                videoPlaceholder.classList.add('pulse');
+                imgElement.style.display = 'none';
+
+                // Forcer le rechargement en ajoutant un timestamp
+                imgElement.src = cam.url + '?t=' + Date.now();
+
+                imgElement.onload = function() {
+                    videoPlaceholder.style.display = 'none';
+                    videoPlaceholder.classList.remove('pulse');
+                    imgElement.style.display = 'block';
+                };
+
+                imgElement.onerror = function() {
+                    videoPlaceholder.textContent = `ERREUR: Impossible de charger ${cam.name}<br>Vérifiez l'URL ou la connexion.`;
+                    videoPlaceholder.style.display = 'flex';
+                    videoPlaceholder.classList.remove('pulse');
+                    imgElement.style.display = 'none';
+                };
+            }
+
+            function prevCamera() {
+                currentCamIndex = (currentCamIndex - 1 + webcams.length) % webcams.length;
+                loadCamera(currentCamIndex);
+            }
+
+            function nextCamera() {
+                currentCamIndex = (currentCamIndex + 1) % webcams.length;
+                loadCamera(currentCamIndex);
+            }
+
+            function toggleFullscreen() {
+                const playerContainer = document.getElementById('playerContainer');
+                if (!document.fullscreenElement) {
+                    playerContainer.requestFullscreen().catch(err => {
+                        console.error(`Erreur fullscreen: ${err.message}`);
+                    });
+                } else {
+                    document.exitFullscreen();
+                }
+            }
+
+            function updateTime() {
+                const now = new Date();
+                const timeStr = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                const dateStr = now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+                timestamp.textContent = `${dateStr} - ${timeStr}`;
+            }
+
+            function setupRefreshInterval() {
+                if (refreshInterval) {
+                    clearInterval(refreshInterval);
+                }
+                refreshInterval = setInterval(refreshStream, 10000);
+            }
+
+            // Effets de survol
+            const buttons = document.querySelectorAll('.control-btn');
+            buttons.forEach(btn => {
+                btn.addEventListener('mouseenter', function() {
+                    if (this.classList.contains('pink')) {
+                        this.style.boxShadow = '0 0 15px var(--neon-pink)';
+                    } else {
+                        this.style.boxShadow = '0 0 15px var(--neon-cyan)';
+                    }
+                });
+
+                btn.addEventListener('mouseleave', function() {
+                    this.style.boxShadow = 'none';
+                });
+            });
+        });
+    </script>
+</body>
+</html>
